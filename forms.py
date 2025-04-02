@@ -7,3 +7,11 @@ class UploadForm(FlaskForm):
         FileRequired(),
         FileAllowed(['csv'], 'CSV files only!')
     ])
+
+class ModelForm(FlaskForm):
+    model = SelectField('Select Model', choices=[
+        ('linear_regression', 'Linear Regression'),
+        ('svm_classification', 'SVM Classification'),
+        ('random_forest_classification', 'Random Forest Classification')
+    ])
+    target_column = SelectField('Select Target Column')

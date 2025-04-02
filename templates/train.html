@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Train Model{% endblock %}
+
+{% block content %}
+    <h1>Train Machine Learning Model</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <p style="color: black;">Select the model you want to train</p>
+        <p>
+            {{ form.model.label }}<br>
+            {{ form.model }}
+        </p>
+        <p style="color: black;">Select the target column</p>
+        <p>
+            {{ form.target_column.label }}<br>
+            {{ form.target_column }}
+        </p>
+        <p><input type="submit" value="Train"></p>
+        <p><a href="{{ url_for('index') }}" class="home-button">Return to Home</a></p>
+    </form>
+{% endblock %}
