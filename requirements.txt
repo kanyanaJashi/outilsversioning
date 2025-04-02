@@ -1,0 +1,8 @@
+Flask
+scikit-learn
+pandas
+WTForms
+joblib
+dvc
+Flask-WTF
+dvc-gs 
