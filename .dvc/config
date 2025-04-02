@@ -1,0 +1,5 @@
+[core]
+    remote = dvcexam
+['remote "dvcexam"']
+    url = gdrive://1Dy8oIjEIzq8GYo6oMQFNHm3nYUj6Xeyp
+    gdrive_use_service_account = true

@@ -6,10 +6,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import mean_squared_error, accuracy_score
-import joblib  # For saving and loading models
+import joblib 
 import os
 import subprocess
-import uuid # For generating unique filenames
+import uuid
+import logging
 
 
 app = Flask(__name__)
@@ -62,22 +63,65 @@ def train_model(data_path, target_column, model_name):
     
 
 def dvc_add_and_push(file_path):
-    """Adds a file to DVC and pushes it to remote storage."""
+    """Versionne un fichier avec DVC et le pousse sur Google Drive"""
     try:
-        subprocess.run(['dvc', 'add', file_path], check=False, capture_output=True,text=True,timeout=60)
-        subprocess.run(['dvc', 'push'], check=False,capture_output=True,text=True,timeout=120)
+        # Ajouter le fichier à DVC
+        add_result = subprocess.run(
+            ['dvc', 'add', file_path],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        logging.info(f"DVC add output: {add_result.stdout}")
+        
+        # Pousser les changements
+        push_result = subprocess.run(
+            ['dvc', 'push'],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        logging.info(f"DVC push output: {push_result.stdout}")
+        
+        # Commit les métadonnées DVC dans Git
+        subprocess.run(
+            ['git', 'add', f'{file_path}.dvc', '.gitignore'],
+            check=True
+        )
+        subprocess.run(
+            ['git', 'commit', '-m', f'DVC: Add {file_path} versioning'],
+            check=True
+        )
+        
         return True
+        
     except subprocess.CalledProcessError as e:
-        print(f"DVC error: {e}")
+        logging.error(f"DVC error (add/push): {e.stderr}")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error: {str(e)}")
         return False
 
 def dvc_pull(file_path):
-    """Pulls a file from DVC remote storage."""
+    """Récupère un fichier versionné depuis Google Drive"""
     try:
-        subprocess.run(['dvc', 'pull', file_path], check=False,capture_output=True,text=True,timeout=120)
+        pull_result = subprocess.run(
+            ['dvc', 'pull', file_path],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        logging.info(f"DVC pull output: {pull_result.stdout}")
         return True
+        
     except subprocess.CalledProcessError as e:
-        print(f"DVC error: {e}")
+        logging.error(f"DVC pull error: {e.stderr}")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error: {str(e)}")
         return False
 
 @app.route('/', methods=['GET', 'POST'])
@@ -89,23 +133,25 @@ def index():
             df = pd.read_csv(csv_file)
 
             if df.empty:
-              flash('Uploaded file is empty.', 'error')
-              return render_template('index.html', form=form)
+                flash('Uploaded file is empty.', 'error')
+                return render_template('index.html', form=form)
 
+            # Sauvegarder le fichier
             csv_filename = f"data/{uuid.uuid4()}.csv"
             df.to_csv(csv_filename, index=False)
 
+            # Versionner avec DVC
             if not dvc_add_and_push(csv_filename):
                 flash("Error versioning data with DVC.", 'error')
                 return render_template('index.html', form=form)
 
-            session['data_path'] = csv_filename 
-            flash('File uploaded successfully!', 'success')
+            session['data_path'] = csv_filename
+            flash('File uploaded and versioned successfully!', 'success')
             return redirect(url_for('train'))
+            
         except Exception as e:
             flash(f'Error processing file: {str(e)}', 'error')
     return render_template('index.html', form=form)
-
 
 @app.route('/train', methods=['GET', 'POST'])
 def train():
@@ -114,35 +160,38 @@ def train():
         flash('Please upload data first.', 'error')
         return redirect(url_for('index'))
 
+    # Récupérer les données versionnées
     data_path = session['data_path']
-
     if not dvc_pull(data_path):
-        flash("Error retrieving data with DVC.", 'error')
+        flash("Error retrieving versioned data with DVC.", 'error')
         return redirect(url_for('index'))
 
-    columns = list(pd.read_csv(data_path).columns) 
+    # Préparer les colonnes pour le formulaire
+    columns = list(pd.read_csv(data_path).columns)
     form.target_column.choices = [(col, col) for col in columns]
 
     if form.validate_on_submit():
         target_column = form.target_column.data
         model_name = form.model.data
 
-        model_path, score = train_model(data_path, target_column, model_name) 
+        # Entraîner le modèle (ceci définit model_path et score)
+        model_path, score = train_model(data_path, target_column, model_name)
 
-        if model_path:
+        # Vérifier si l'entraînement a réussi
+        if model_path and score is not None:
+            # Versionner le modèle avec DVC
             if not dvc_add_and_push(model_path):
-                flash('Model could not be saved and versioned.', 'error')
+                flash('Model could not be versioned.', 'error')
                 return render_template('train.html', form=form, columns=columns)
-
-            session['model_path'] = model_path 
+            
+            # Stocker les résultats en session
+            session['model_path'] = model_path
             session['score'] = score
             return redirect(url_for('results'))
         else:
             flash('Model training failed.', 'error')
 
     return render_template('train.html', form=form, columns=columns)
-
-
-
+    
 if __name__ == '__main__':
     app.run(debug=True)
