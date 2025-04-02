@@ -192,6 +192,26 @@ def train():
             flash('Model training failed.', 'error')
 
     return render_template('train.html', form=form, columns=columns)
+
+@app.route('/results')
+def results():
+    if 'model_path' not in session:
+        flash('Please train a model first.', 'error')
+        return redirect(url_for('index'))
+
+    model_path = session['model_path']
+    score = session['score']
+
+    return render_template('results.html', model_path=model_path, score=score)
+
+@app.route('/download_model')
+def download_model():
+    if 'model_path' not in session:
+        flash('Please train a model first.', 'error')
+        return redirect(url_for('index'))
+
+    model_path = session['model_path']
+    return send_file(model_path, as_attachment=True)
     
 if __name__ == '__main__':
     app.run(debug=True)

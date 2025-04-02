@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Training Results{% endblock %}
+
+{% block content %}
+    <div class="results-container">
+        <h1 style="color:blue">Training Results</h1>
+        <p style="color:black">Model: {{ model_path }}</p>
+        <p style="color:black">Score: {{ score }}</p>
+        <p><a href="{{ url_for('download_model') }}">Download Model</a></p>
+        <p><a href="{{ url_for('index') }}" class="home-button">Return to Home</a></p>
+    </div>
+{% endblock %}
