@@ -2,9 +2,3 @@ venv/
 __pycache__/
 *.pyc
 *.pyo
-.dvc/
-data/
-models/
-.env
-tmp/
-config/
