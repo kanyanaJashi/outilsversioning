@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Upload Data{% endblock %}
+
+{% block content %}
+    <div class="index-content">
+        <img src="{{ url_for('static', filename='images/ml_banner.jpg') }}" alt="Machine Learning Banner" class="ml-banner">
+
+        <h1 style="color: blue;">Machine Learning Portal</h1>
+        <p style="color: black;">Bienvenue sur notre portail de formation en apprentissage automatique.</p>
+        <p style="color: black;">Ce portail fonctionne avec des jeux de données CSV injectés.</p>
+        <p style="color: black;">Le portail n'effectue pas la préparation des données pour produire des données propres ; les fichiers CSV injectés sont donc censés être des données propres.</p>
+
+        <form method="POST" enctype="multipart/form-data" id="upload-form">
+            {{ form.hidden_tag() }}
+            <p style="color: black;">
+                {{ form.data_file.label }}<br>
+                {{ form.data_file(size=32) }}<br>
+                {% for error in form.data_file.errors %}
+                    <span style="color: red;">[{{ error }}]</span>
+                {% endfor %}
+            </p>
+            <p><input type="submit" value="Upload"></p>
+        </form>
+    </div>
+{% endblock %}
