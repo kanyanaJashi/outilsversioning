@@ -53,20 +53,22 @@ pipeline {
                 }
             }
         }
-    }
 
-    stage('Nettoyage') {
-        steps {
-            // Solution robuste avec script
-            script {
-                try {
-                    bat 'if exist venv rmdir /s /q venv'
-                } catch (e) {
-                    echo "Nettoyage échoué : ${e}"
+         stage('Nettoyage') {
+            steps {
+                // Solution robuste avec script
+                script {
+                    try {
+                        bat 'if exist venv rmdir /s /q venv'
+                    } catch (e) {
+                        echo "Nettoyage échoué : ${e}"
+                    }
                 }
             }
         }
     }
+
+   
     
 
     post {
