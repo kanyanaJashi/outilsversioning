@@ -1,60 +1,70 @@
 pipeline {
     agent {
-        label 'master' // Spécifiez explicitement un agent
+        // Spécifiez explicitement un agent avec le label approprié
+        label 'windows-agent' // ou 'master' si votre nœud principal est Windows
     }
-    
+
     environment {
         PROJECT_DIR = 'ml-web-app'
-        PYTHON = 'python' // Sur Windows, utilisez 'python' au lieu de 'python3'
+        PYTHON = 'python' // Windows utilise 'python'
         GDRIVE_CREDS = credentials('gdrive-service-account')
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', 
-                url: 'https://github.com/kenkleven/outilsversioning.git'
+                checkout scm // Méthode plus fiable pour le checkout
                 
-                // Configurer DVC pour Windows
-                bat '''
-                    mkdir "%USERPROFILE%\\.config\\dvc"
-                    echo %GDRIVE_CREDS% > "%USERPROFILE%\\.config\\dvc\\gdrive-creds.json"
-                    dvc remote modify myremote --local gdrive_service_account_json_path "%USERPROFILE%\\.config\\dvc\\gdrive-creds.json"
-                    dvc pull
-                '''
+                script {
+                    // Configuration spécifique Windows
+                    def credsPath = "${env.USERPROFILE}\\.config\\dvc\\gdrive-creds.json"
+                    bat """
+                        mkdir "${env.USERPROFILE}\\.config\\dvc"
+                        echo ${GDRIVE_CREDS} > "${credsPath}"
+                        dvc remote modify myremote --local gdrive_service_account_json_path "${credsPath}"
+                        dvc pull
+                    """
+                }
             }
         }
-        
+
         stage('Setup') {
             steps {
                 bat '''
-                    python -m venv venv
-                    call venv\\Scripts\\activate
-                    pip install -r requirements.txt
-                    pip install pytest pytest-cov
+                    python -m venv venv || exit /b
+                    call venv\\Scripts\\activate || exit /b
+                    pip install -r requirements.txt || exit /b
+                    pip install pytest pytest-cov || exit /b
                 '''
             }
         }
-        
+
         stage('Unit Tests') {
             steps {
                 bat '''
                     call venv\\Scripts\\activate
                     pytest tests/ --cov=app --cov-report=xml:coverage.xml -v
                 '''
-            }
-            post {
-                always {
-                    junit '**/test-reports/*.xml'
-                    publishCoverage adapters: [coberturaAdapter('coverage.xml')]
+                post {
+                    always {
+                        junit '**/test-reports/*.xml'
+                        publishCoverage adapters: [coberturaAdapter('coverage.xml')]
+                    }
                 }
             }
         }
     }
-    
+
     post {
         always {
-            bat 'rmdir /s /q venv' // Nettoyage sous Windows
+            script {
+                // Nettoyage plus robuste pour Windows
+                try {
+                    bat 'rmdir /s /q venv'
+                } catch (e) {
+                    echo "Échec du nettoyage : ${e}"
+                }
+            }
         }
     }
 }
