@@ -55,14 +55,29 @@ pipeline {
         }
     }
 
+    stages {
+        stage('Nettoyage') {
+            steps {
+                // Solution robuste avec script
+                script {
+                    try {
+                        bat 'if exist venv rmdir /s /q venv'
+                    } catch (e) {
+                        echo "Nettoyage échoué : ${e}"
+                    }
+                }
+            }
+        }
+    }
+
     post {
         always {
             script {
-                // Nettoyage plus robuste pour Windows
-                try {
-                    bat 'rmdir /s /q venv'
-                } catch (e) {
-                    echo "Échec du nettoyage : ${e}"
+                // Alternative plus sûre pour le post
+                if (isUnix()) {
+                    sh 'rm -rf venv || true'
+                } else {
+                    bat 'if exist venv rmdir /s /q venv || exit 0'
                 }
             }
         }
