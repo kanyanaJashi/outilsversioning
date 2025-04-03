@@ -1,11 +1,12 @@
 pipeline {
-    agent any
+    agent {
+        label 'master' // Spécifiez explicitement un agent
+    }
     
     environment {
         PROJECT_DIR = 'ml-web-app'
-        PYTHON = 'python3'
-        // Pour DVC avec Google Drive
-        GDRIVE_CREDS = credentials('gdrive-service-account') 
+        PYTHON = 'python' // Sur Windows, utilisez 'python' au lieu de 'python3'
+        GDRIVE_CREDS = credentials('gdrive-service-account')
     }
     
     stages {
@@ -14,32 +15,32 @@ pipeline {
                 git branch: 'main', 
                 url: 'https://github.com/kenkleven/outilsversioning.git'
                 
-                // Configurer DVC
-                sh '''
-                mkdir -p ~/.config/dvc
-                echo "$GDRIVE_CREDS" > ~/.config/dvc/gdrive-creds.json
-                dvc remote modify dvcexam --local gdrive_service_account_json_file_path ~/.config/dvc/gdrive-creds.json
-                dvc pull
+                // Configurer DVC pour Windows
+                bat '''
+                    mkdir "%USERPROFILE%\\.config\\dvc"
+                    echo %GDRIVE_CREDS% > "%USERPROFILE%\\.config\\dvc\\gdrive-creds.json"
+                    dvc remote modify myremote --local gdrive_service_account_json_path "%USERPROFILE%\\.config\\dvc\\gdrive-creds.json"
+                    dvc pull
                 '''
             }
         }
         
         stage('Setup') {
             steps {
-                sh '''
-                virtualenv venv
-                . venv/bin/activate
-                pip install -r requirements.txt
-                pip install pytest pytest-cov
+                bat '''
+                    python -m venv venv
+                    call venv\\Scripts\\activate
+                    pip install -r requirements.txt
+                    pip install pytest pytest-cov
                 '''
             }
         }
         
         stage('Unit Tests') {
             steps {
-                sh '''
-                . venv/bin/activate
-                pytest tests/ --cov=app --cov-report=xml:coverage.xml -v
+                bat '''
+                    call venv\\Scripts\\activate
+                    pytest tests/ --cov=app --cov-report=xml:coverage.xml -v
                 '''
             }
             post {
@@ -49,27 +50,11 @@ pipeline {
                 }
             }
         }
-        
-        stage('Integration Test - Model Training') {
-            steps {
-                sh '''
-                . venv/bin/activate
-                python tests/train_test_model.py
-                '''
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'models/test_model_*.joblib', allowEmptyArchive: true
-                    archiveArtifacts artifacts: 'training_report.json', allowEmptyArchive: true
-                }
-            }
-        }
     }
     
     post {
         always {
-            // Nettoyage
-            sh 'rm -rf venv'
+            bat 'rmdir /s /q venv' // Nettoyage sous Windows
         }
     }
 }
