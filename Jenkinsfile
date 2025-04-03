@@ -53,7 +53,6 @@ pipeline {
                 }
             }
         }
-    }
 
     stages {
         stage('Nettoyage') {
