@@ -1,4 +1,3 @@
-@@ -1,86 +1,83 @@
  pipeline {
      agent {
          // Spécifiez explicitement un agent avec le label approprié
