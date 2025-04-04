@@ -1,61 +1,85 @@
 pipeline {
-    agent any
+    agent {
+        // Spécifiez explicitement un agent avec le label approprié
+        label 'windows-agent' // ou 'master' si votre nœud principal est Windows
+    }
+
+    environment {
+        PROJECT_DIR = 'ml-web-app'
+        PYTHON = 'python' // Windows utilise 'python'
+        GDRIVE_CREDS = credentials('gdrive-service-account')
+    }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                git url: 'https://github.com/kanyanaJashi/outilsversioning.git'
-            }
-        }
-
-        stage('Set Up Environment') {
-            steps {
+                checkout scm // Méthode plus fiable pour le checkout
+                
                 script {
-                    def pythonInterpreter = tool 'Python 3' // Ensure you have a Python 3 tool configured in Jenkins
-                    if (!pythonInterpreter) {
-                        error("Python 3 tool not configured in Jenkins.")
+                    // Configuration spécifique Windows
+                    def credsPath = "${env.USERPROFILE}\\.config\\dvc\\gdrive-creds.json"
+                    bat """
+                        mkdir "${env.USERPROFILE}\\.config\\dvc"
+                        echo ${GDRIVE_CREDS} > "${credsPath}"
+                        dvc remote modify myremote --local gdrive_service_account_json_path "${credsPath}"
+                        dvc pull
+                    """
+                }
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                bat '''
+                    python -m venv venv || exit /b
+                    call venv\\Scripts\\activate || exit /b
+                    pip install -r requirements.txt || exit /b
+                    pip install pytest pytest-cov || exit /b
+                '''
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                bat '''
+                    call venv\\Scripts\\activate
+                    pytest tests/ --cov=app --cov-report=xml:coverage.xml -v
+                '''
+                post {
+                    always {
+                        junit '**/test-reports/*.xml'
+                        publishCoverage adapters: [coberturaAdapter('coverage.xml')]
                     }
-                    env.PATH = "${pythonInterpreter}/bin:${env.PATH}"
-                }
-                sh 'pip install -r requirements.txt' // Assuming you have a requirements.txt file
-                sh 'pip install pytest pytest-cov' // For running tests and generating coverage (optional)
-                sh 'pip install pandas scikit-learn' // Ensure necessary libraries for model testing are installed
-            }
-        }
-
-        stage('Run Source Code Tests') {
-            steps {
-                sh 'pytest .' // Run tests from the root directory
-                junit 'junit.xml' // Assuming pytest generates a junit.xml report
-            }
-            post {
-                always {
-                    junit 'junit.xml'
                 }
             }
         }
 
-        stage('Test Trained Model') {
+         stage('Nettoyage') {
             steps {
+                // Solution robuste avec script
                 script {
-                    def pythonInterpreter = tool 'Python 3' // Ensure you have a Python 3 tool configured in Jenkins
-                    if (!pythonInterpreter) {
-                        error("Python 3 tool not configured in Jenkins.")
+                    try {
+                        bat 'if exist venv rmdir /s /q venv'
+                    } catch (e) {
+                        echo "Nettoyage échoué : ${e}"
                     }
-                    env.PATH = "${pythonInterpreter}/bin:${env.PATH}"
-                }
-                sh 'python Model/test_model.py data/your_test_data.csv model.pkl model_test_report.xml'
-                junit 'model_test_report.xml'
-            }
-            post {
-                always {
-                    junit 'model_test_report.xml'
                 }
             }
         }
     }
 
-    tools {
-        python 'Python 3' // Define a Python tool named 'Python 3' in Jenkins Global Tool Configuration
+   
+    
+
+    post {
+        always {
+            script {
+                // Alternative plus sûre pour le post
+                if (isUnix()) {
+                    sh 'rm -rf venv || true'
+                } else {
+                    bat 'if exist venv rmdir /s /q venv || exit 0'
+                }
+            }
+        }
     }
-}
